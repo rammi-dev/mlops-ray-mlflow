@@ -1,0 +1,46 @@
+{{- if .Values.oxy.enabled }}
+{{- $oxy := .Values.oxy }}
+{{- $namespaces := list .Values.global.namespace.platform .Values.global.namespace.workloads }}
+{{- range $ns := $namespaces }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $oxy.pvcName }}-{{ $ns }}
+  labels:
+    {{- include "kyper.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: oxy-data
+spec:
+  capacity:
+    storage: {{ $oxy.size }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.1
+  nfs:
+    server: {{ $oxy.nfs.server }}
+    path: {{ $oxy.nfs.path }}
+  claimRef:
+    namespace: {{ $ns }}
+    name: {{ $oxy.pvcName }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $oxy.pvcName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "kyper.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: oxy-data
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: {{ $oxy.pvcName }}-{{ $ns }}
+  resources:
+    requests:
+      storage: {{ $oxy.size }}
+{{- end }}
+{{- end }}

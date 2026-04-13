@@ -1,0 +1,21 @@
+{{- if and .Values.cnpg.enabled (.Values.mlflow.postgres.enabled | default false) }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "kyper.name" . }}-mlflow-pg
+  namespace: {{ .Values.global.namespace.platform }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.mlflow.postgres.instances | default 1 }}
+  imageName: {{ .Values.mlflow.postgres.imageName | default "ghcr.io/cloudnative-pg/postgresql:18" }}
+  storage:
+    size: {{ .Values.mlflow.postgres.size | default "5Gi" }}
+    {{- if .Values.mlflow.postgres.storageClass }}
+    storageClass: {{ .Values.mlflow.postgres.storageClass }}
+    {{- end }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.mlflow.postgres.database | default "mlflow" }}
+      owner: {{ .Values.mlflow.postgres.owner | default "mlflow" }}
+{{- end }}

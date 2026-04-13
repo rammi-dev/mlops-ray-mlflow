@@ -1,0 +1,17 @@
+{{- if and .Values.mlflow.enabled .Values.mlflow.artifactVolume.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlflow-artifacts
+  namespace: {{ .Values.global.namespace.platform }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mlflow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.mlflow.artifactVolume.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.mlflow.artifactVolume.size }}
+{{- end }}

@@ -1,0 +1,21 @@
+{{- if and .Values.cnpg.enabled (.Values.jupyterhubPostgres.enabled | default false) }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "kyper.name" . }}-jupyterhub-pg
+  namespace: {{ .Values.global.namespace.platform }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.jupyterhubPostgres.instances | default 1 }}
+  imageName: {{ .Values.jupyterhubPostgres.imageName | default "ghcr.io/cloudnative-pg/postgresql:18" }}
+  storage:
+    size: {{ .Values.jupyterhubPostgres.size | default "2Gi" }}
+    {{- if .Values.jupyterhubPostgres.storageClass }}
+    storageClass: {{ .Values.jupyterhubPostgres.storageClass }}
+    {{- end }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.jupyterhubPostgres.database | default "jupyterhub" }}
+      owner: {{ .Values.jupyterhubPostgres.owner | default "jupyterhub" }}
+{{- end }}

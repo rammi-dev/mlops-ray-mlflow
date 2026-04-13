@@ -1,0 +1,11 @@
+{{- if .Values.storageClass.waitForFirstConsumer.enabled }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.waitForFirstConsumer.name }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+provisioner: {{ .Values.storageClass.waitForFirstConsumer.provisioner }}
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+{{- end }}

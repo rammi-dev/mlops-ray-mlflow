@@ -1,0 +1,104 @@
+{{- if and .Values.jupyterhub.enabled ((.Values.rayCleanup).enabled | default false) }}
+# ── CronJob: delete orphaned RayClusters with no matching notebook pod ────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ray-cluster-cleanup
+  namespace: {{ .Values.global.namespace.platform }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ray-cluster-cleanup
+  namespace: {{ .Values.global.namespace.workloads }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["ray.io"]
+    resources: ["rayclusters"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ray-cluster-cleanup
+  namespace: {{ .Values.global.namespace.workloads }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ray-cluster-cleanup
+subjects:
+  - kind: ServiceAccount
+    name: ray-cluster-cleanup
+    namespace: {{ .Values.global.namespace.platform }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ray-cluster-cleanup
+  namespace: {{ .Values.global.namespace.platform }}
+  labels:
+    {{- include "kyper.labels" . | nindent 4 }}
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 600
+      template:
+        spec:
+          serviceAccountName: ray-cluster-cleanup
+          restartPolicy: OnFailure
+          {{- with .Values.jupyterhub.hub.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: cleanup
+              image: bitnami/kubectl:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  NS="{{ .Values.global.namespace.workloads }}"
+                  echo "Checking for orphaned RayClusters in $NS..."
+
+                  # Get all RayClusters named ray-*
+                  CLUSTERS=$(kubectl get rayclusters -n "$NS" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+                  if [ -z "$CLUSTERS" ]; then
+                    echo "No RayClusters found."
+                    exit 0
+                  fi
+
+                  # Get all running notebook pods (JupyterHub names them jupyter-<username>)
+                  PODS=$(kubectl get pods -n "$NS" -l component=singleuser-server --field-selector=status.phase=Running -o jsonpath='{.items[*].metadata.labels.hub\.jupyter\.org/username}' 2>/dev/null || true)
+
+                  for cluster in $CLUSTERS; do
+                    # Extract username: ray-<username> -> <username>
+                    username="${cluster#ray-}"
+                    # Check if a notebook pod exists for this user
+                    found=false
+                    for user in $PODS; do
+                      if [ "$user" = "$username" ]; then
+                        found=true
+                        break
+                      fi
+                    done
+                    if [ "$found" = "false" ]; then
+                      echo "Deleting orphaned RayCluster: $cluster (no notebook pod for user '$username')"
+                      kubectl delete raycluster "$cluster" -n "$NS"
+                    else
+                      echo "RayCluster $cluster has active notebook pod, keeping."
+                    fi
+                  done
+                  echo "Cleanup complete."
+{{- end }}

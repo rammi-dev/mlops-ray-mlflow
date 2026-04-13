@@ -1,0 +1,22 @@
+apiVersion: v2
+name: kyper-ds-platform
+description: Kyper DS platform — KubeRay, CNPG, MLflow, namespaces, RBAC
+version: 0.1.0
+type: application
+
+dependencies:
+  - name: cloudnative-pg
+    version: "0.28.0"
+    repository: https://cloudnative-pg.github.io/charts
+    alias: cnpg
+    condition: cnpg.enabled
+
+  - name: kuberay-operator
+    version: "1.6.0"
+    repository: https://ray-project.github.io/kuberay-helm/
+    condition: kuberayOperator.enabled
+
+  - name: jupyterhub
+    version: "4.3.3"
+    repository: https://hub.jupyter.org/helm-chart/
+    condition: jupyterhub.enabled

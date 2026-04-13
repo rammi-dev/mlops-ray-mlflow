@@ -1,0 +1,329 @@
+# Shared defaults — all environments inherit these.
+
+global:
+  namespace:
+    platform: ds-platform
+    workloads: ds-workloads
+
+# WaitForFirstConsumer variant of csi-hostpath so node-local PVs bind after
+# the pod is scheduled (respects nodeSelectors like kyper.ai/role=workload).
+storageClass:
+  waitForFirstConsumer:
+    enabled: true
+    name: csi-hostpath-sc-wait
+    provisioner: hostpath.csi.k8s.io
+
+# Shared oxy data served via NFS PVC (ReadWriteMany) to JupyterHub + Ray.
+oxy:
+  enabled: true
+  pvcName: oxy-data
+  mountPath: /mnt/oxy
+  size: 2Gi
+  nfs:
+    server: nfs-nfs-server-provisioner.nfs.svc.cluster.local
+    path: /export/oxy
+
+cnpg:
+  enabled: true
+  nameOverride: cloudnative-pg
+
+kuberayOperator:
+  enabled: true
+
+kuberay-operator: {}
+
+mlflow:
+  enabled: true
+  image:
+    repository: ghcr.io/mlflow/mlflow
+    tag: v3.11.1-full
+  replicas: 1
+  artifactRoot: /mlflow/artifacts
+  artifactVolume:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+  nodeSelector: {}
+  postgres:
+    enabled: true
+    instances: 1
+    imageName: ghcr.io/cloudnative-pg/postgresql:18
+    size: 5Gi
+    storageClass: ""
+    database: mlflow
+    owner: mlflow
+
+# ── JupyterHub ────────────────────────────────────────────────────────────────
+
+jupyterhubPostgres:
+  enabled: true
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  size: 2Gi
+  storageClass: ""
+  database: jupyterhub
+  owner: jupyterhub
+
+jupyterhub:
+  enabled: true
+
+  cull:
+    enabled: true
+    timeout: 10800
+    every: 600
+
+  hub:
+    # Singleuser runs in ds-workloads; allow cross-namespace hub↔singleuser.
+    networkPolicy:
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: ds-workloads
+              podSelector:
+                matchLabels:
+                  hub.jupyter.org/network-access-hub: "true"
+          ports:
+            - port: 8081
+              protocol: TCP
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: ds-workloads
+              podSelector:
+                matchLabels:
+                  app: jupyterhub
+                  component: singleuser-server
+          ports:
+            - port: 8888
+              protocol: TCP
+    db:
+      type: postgres
+    config:
+      JupyterHub:
+        admin_access: true
+        authenticator_class: dummy
+        hub_connect_url: http://hub.ds-platform.svc.cluster.local:8081
+      KubeSpawner:
+        start_timeout: 600
+        http_timeout: 300
+      Authenticator:
+        admin_users: ["admin"]
+    extraEnv:
+      JUPYTERHUB_DB_URL:
+        valueFrom:
+          secretKeyRef:
+            name: kyper-ds-platform-jupyterhub-pg-app
+            key: uri
+    extraConfig:
+      db-config: |
+        import os
+        db_url = os.environ.get('JUPYTERHUB_DB_URL', '')
+        if db_url:
+            c.JupyterHub.db_url = db_url
+      ray-profiles: |
+        from kubernetes_asyncio import client as k8s_client, config as k8s_config
+        import string, yaml
+
+        RAY_IMAGE = "rayproject/ray:2.41.0-py312"
+        WORKLOAD_NS = "ds-workloads"
+        OXY_MOUNT = "/mnt/oxy"
+
+        RAY_PROFILES = {
+            "small": {"cpu": "500m", "memory": "1Gi", "cpu_limit": "1", "memory_limit": "2Gi",
+                       "workers_min": 0, "workers_max": 1},
+            "large": {"cpu": "1",    "memory": "2Gi", "cpu_limit": "2", "memory_limit": "4Gi",
+                       "workers_min": 0, "workers_max": 3},
+        }
+
+        def _cluster_name(username):
+            safe = "".join(c if c in string.ascii_lowercase + string.digits + "-" else "-" for c in username.lower())
+            return f"ray-{safe}"[:63]
+
+        def _ray_cluster_manifest(username, profile):
+            p = RAY_PROFILES[profile]
+            return {
+                "apiVersion": "ray.io/v1",
+                "kind": "RayCluster",
+                "metadata": {"name": _cluster_name(username), "namespace": WORKLOAD_NS},
+                "spec": {
+                    "rayVersion": "2.41.0",
+                    "enableInTreeAutoscaling": True,
+                    "headGroupSpec": {
+                        "rayStartParams": {"dashboard-host": "0.0.0.0"},
+                        "template": {"spec": {
+                            "serviceAccountName": "ray-worker",
+                            "nodeSelector": {"kyper.ai/role": "workload"},
+                            "containers": [{
+                                "name": "ray-head",
+                                "image": RAY_IMAGE,
+                                "env": [
+                                    {"name": "MLFLOW_TRACKING_URI", "value": "http://mlflow.ds-platform.svc.cluster.local:5000"},
+                                ],
+                                "resources": {
+                                    "requests": {"cpu": p["cpu"], "memory": p["memory"]},
+                                    "limits": {"cpu": p["cpu_limit"], "memory": p["memory_limit"]},
+                                },
+                                "ports": [{"containerPort": 6379}, {"containerPort": 8265}, {"containerPort": 10001}],
+                                "volumeMounts": [{"name": "oxy-data", "mountPath": OXY_MOUNT}],
+                            }],
+                            "volumes": [{"name": "oxy-data", "persistentVolumeClaim": {"claimName": "oxy-data"}}],
+                        }},
+                    },
+                    "workerGroupSpecs": [{
+                        "groupName": "workers",
+                        "replicas": 0,
+                        "minReplicas": p["workers_min"],
+                        "maxReplicas": p["workers_max"],
+                        "rayStartParams": {},
+                        "template": {"spec": {
+                            "serviceAccountName": "ray-worker",
+                            "nodeSelector": {"kyper.ai/role": "workload"},
+                            "containers": [{
+                                "name": "ray-worker",
+                                "image": RAY_IMAGE,
+                                "env": [
+                                    {"name": "MLFLOW_TRACKING_URI", "value": "http://mlflow.ds-platform.svc.cluster.local:5000"},
+                                ],
+                                "resources": {
+                                    "requests": {"cpu": p["cpu"], "memory": p["memory"]},
+                                    "limits": {"cpu": p["cpu_limit"], "memory": p["memory_limit"]},
+                                },
+                                "volumeMounts": [{"name": "oxy-data", "mountPath": OXY_MOUNT}],
+                            }],
+                            "volumes": [{"name": "oxy-data", "persistentVolumeClaim": {"claimName": "oxy-data"}}],
+                        }},
+                    }],
+                },
+            }
+
+        async def _load_k8s_config():
+            try:
+                k8s_config.load_incluster_config()
+            except k8s_config.ConfigException:
+                await k8s_config.load_kube_config()
+
+        async def pre_spawn_hook(spawner):
+            spawner.namespace = WORKLOAD_NS
+            profile = spawner.user_options.get("profile", "small")
+            username = spawner.user.name
+            cluster_name = _cluster_name(username)
+            manifest = _ray_cluster_manifest(username, profile)
+
+            await _load_k8s_config()
+
+            api = k8s_client.CustomObjectsApi()
+            # Delete existing cluster if any
+            try:
+                await api.delete_namespaced_custom_object(
+                    group="ray.io", version="v1", namespace=WORKLOAD_NS,
+                    plural="rayclusters", name=cluster_name)
+            except k8s_client.exceptions.ApiException as e:
+                if e.status != 404:
+                    raise
+            # Create the cluster
+            await api.create_namespaced_custom_object(
+                group="ray.io", version="v1", namespace=WORKLOAD_NS,
+                plural="rayclusters", body=manifest)
+
+            head_svc = f"{cluster_name}-head-svc.{WORKLOAD_NS}.svc.cluster.local"
+            spawner.environment["RAY_ADDRESS"] = f"ray://{head_svc}:10001"
+            spawner.environment["RAY_CLUSTER_NAME"] = cluster_name
+            spawner.environment["MLFLOW_TRACKING_URI"] = f"http://mlflow.ds-platform.svc.cluster.local:5000"
+
+        async def post_stop_hook(spawner):
+            username = spawner.user.name
+            cluster_name = _cluster_name(username)
+            await _load_k8s_config()
+            api = k8s_client.CustomObjectsApi()
+            try:
+                await api.delete_namespaced_custom_object(
+                    group="ray.io", version="v1", namespace=WORKLOAD_NS,
+                    plural="rayclusters", name=cluster_name)
+            except k8s_client.exceptions.ApiException as e:
+                if e.status != 404:
+                    raise
+
+        c.KubeSpawner.namespace = WORKLOAD_NS
+        c.KubeSpawner.pre_spawn_hook = pre_spawn_hook
+        c.KubeSpawner.post_stop_hook = post_stop_hook
+
+  singleuser:
+    image:
+      name: quay.io/jupyterhub/k8s-singleuser-sample
+      tag: 4.3.3
+    defaultUrl: "/lab"
+    extraEnv:
+      MLFLOW_TRACKING_URI: "http://mlflow.ds-platform.svc.cluster.local:5000"
+      OXY_ROOT: "/mnt/oxy"
+    lifecycleHooks:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "ln -sfn /mnt/oxy /home/jovyan/oxy; pip install -q 'numpy<2' 'pandas<2.2' ray[client]==2.41.0 mlflow>=2.0 scikit-learn pyod matplotlib xgboost statsmodels pyyaml ipywidgets &"]
+    profileList:
+      - display_name: "Small Ray Cluster"
+        description: "1 CPU head, up to 1 worker (autoscale)"
+        slug: "small"
+        default: true
+      - display_name: "Large Ray Cluster"
+        description: "2 CPU head, up to 3 workers (autoscale)"
+        slug: "large"
+    nodeSelector:
+      kyper.ai/role: workload
+    storage:
+      capacity: 2Gi
+      extraVolumes:
+        - name: oxy-data
+          persistentVolumeClaim:
+            claimName: oxy-data
+      extraVolumeMounts:
+        - name: oxy-data
+          mountPath: /mnt/oxy
+    networkPolicy:
+      # Allow egress to Ray clusters in ds-workloads and MLflow in ds-platform
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: ds-workloads
+          ports:
+            - port: 10001    # Ray Client
+              protocol: TCP
+            - port: 6379     # Ray GCS
+              protocol: TCP
+            - port: 8265     # Ray Dashboard
+              protocol: TCP
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: mlflow
+          ports:
+            - port: 5000
+              protocol: TCP
+
+  proxy:
+    # Proxy routes user traffic to singleuser in ds-workloads.
+    chp:
+      networkPolicy:
+        egress:
+          - to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: ds-workloads
+                podSelector:
+                  matchLabels:
+                    app: jupyterhub
+                    component: singleuser-server
+            ports:
+              - port: 8888
+                protocol: TCP
+    service:
+      type: ClusterIP

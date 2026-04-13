@@ -1,0 +1,45 @@
+# Minikube overrides
+
+cnpg:
+  nodeSelector:
+    kyper.ai/role: platform
+
+kuberay-operator:
+  nodeSelector:
+    kyper.ai/role: platform
+
+mlflow:
+  nodeSelector:
+    kyper.ai/role: platform
+  artifactVolume:
+    storageClass: csi-hostpath-sc-wait
+    size: 2Gi
+  postgres:
+    instances: 1
+    size: 2Gi
+    storageClass: csi-hostpath-sc-wait
+
+# ── JupyterHub minikube overrides ─────────────────────────────────────────────
+
+jupyterhubPostgres:
+  size: 1Gi
+  storageClass: csi-hostpath-sc-wait
+
+jupyterhub:
+  cull:
+    timeout: 1800
+    every: 300
+  hub:
+    nodeSelector:
+      kyper.ai/role: platform
+  proxy:
+    chp:
+      nodeSelector:
+        kyper.ai/role: platform
+  singleuser:
+    nodeSelector:
+      kyper.ai/role: workload
+    storage:
+      capacity: 1Gi
+      dynamic:
+        storageClass: csi-hostpath-sc-wait
