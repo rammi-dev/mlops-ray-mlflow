@@ -2,8 +2,9 @@
 
 Two-part foundation for data-science work at Kyper (PoC):
 
-- **[`infra/`](infra/)** — platform deployed **once per cluster** via Helm. Provides MLflow, KubeRay operator, CloudNativePG-managed Postgres, namespaces, RBAC, and shared storage. Runs on minikube today, GCP tomorrow, same chart.
+- **[`infra/`](infra/)** — platform deployed **once per cluster** via Helm. Provides JupyterHub (with on-demand per-user Ray clusters), MLflow, KubeRay operator, CloudNativePG-managed Postgres, NFS-backed shared data, namespaces, and RBAC. Runs on minikube today, GCP tomorrow, same chart.
 - **[`flow/`](flow/)** — the `kyp` Python framework + cookiecutter template used **per DS project**. Encodes the stage-per-RayJob execution pattern, local↔Ray parity, and MLflow wiring so DS writes only pure task functions.
+- **[`notebooks/`](notebooks/)** — reference PoC: [`anomaly_detection_ray_parallel.ipynb`](notebooks/anomaly_detection_ray_parallel.ipynb) runs 6 PyOD models across sensor data with Ray-parallel fan-out and MLflow nested runs.
 
 ## High-level architecture
 
@@ -11,17 +12,17 @@ Two-part foundation for data-science work at Kyper (PoC):
 flowchart LR
     subgraph KF["kyper-framework"]
         direction LR
-        subgraph INFRA["infra/ — deployed once per env (Helm)"]
+        subgraph INFRA["infra/ — Helm umbrella chart (kyper-ds-platform)"]
             direction TB
-            I1["CNPG operator + Postgres Cluster"]
-            I2["MLflow tracking server"]
-            I3["KubeRay operator"]
-            I4["Namespaces: ds-platform / ds-workloads"]
-            I5["Shared PVC (minikube) / GCS (GCP)"]
-            I6["RBAC + ResourceQuota"]
-            I7["values-{minikube,gcp-dev,gcp-prod}.yaml"]
+            I1["CNPG operator + 2× Postgres Clusters<br/>(MLflow backend, JupyterHub backend)"]
+            I2["MLflow tracking server<br/>(PVC-backed artifacts on minikube)"]
+            I3["KubeRay operator (cluster-wide)"]
+            I4["JupyterHub<br/>(per-user notebook + on-demand RayCluster)"]
+            I5["NFS-backed shared data PVC (oxy-data, RWX)"]
+            I6["Namespaces: ds-platform / ds-workloads<br/>+ RBAC"]
+            I7["values-minikube.yaml · values-nfs.yaml · values-gcp-*.yaml"]
         end
-        subgraph FLOW["flow/ — cloned per DS project (Cookiecutter + kyp)"]
+        subgraph FLOW["flow/ — per-project (Cookiecutter + kyp)"]
             direction TB
             F1["@task / @stage / @pipeline"]
             F2["LocalExecutor / RayExecutor"]
@@ -32,9 +33,39 @@ flowchart LR
         end
     end
     OPS(["ops / platform team"]) -- "helm install" --> INFRA
-    DS(["data scientist"]) -- "cookiecutter new" --> FLOW
+    DS(["data scientist"]) -- "cookiecutter new<br/>or JupyterHub login" --> FLOW
     FLOW -- "submits RayJobs / logs runs" --> INFRA
 ```
+
+## Cluster runtime
+
+```mermaid
+flowchart TB
+    subgraph PLAT["ns: ds-platform (long-lived)"]
+        HUB["JupyterHub hub + proxy"]
+        MLF["MLflow server :5000"]
+        PG1[("CNPG: mlflow-pg")]
+        PG2[("CNPG: jupyterhub-pg")]
+        MLF --- PG1
+        HUB --- PG2
+    end
+    subgraph WORK["ns: ds-workloads (ephemeral, per-user)"]
+        SU["singleuser notebook pod<br/>(jovyan)"]
+        RC["RayCluster ray-&lt;user&gt;<br/>head + autoscaled workers<br/>(small / large profile)"]
+        RJ["RayJob/&lt;stage&gt;-&lt;run-id&gt;<br/>(kyp pipeline submissions)"]
+    end
+    subgraph NFS["ns: nfs"]
+        NFSSRV[("nfs-server-provisioner<br/>/export/oxy")]
+    end
+    HUB -- "pre_spawn_hook<br/>creates RayCluster" --> RC
+    SU -- "ray.init RAY_ADDRESS" --> RC
+    SU -- "MLFLOW_TRACKING_URI" --> MLF
+    RC -- "MLFLOW_TRACKING_URI" --> MLF
+    SU -- "PVC oxy-data (RWX)" --> NFSSRV
+    RC -- "PVC oxy-data (RWX)" --> NFSSRV
+```
+
+## Pipeline run (kyp CLI path)
 
 ```mermaid
 flowchart TB
@@ -45,7 +76,17 @@ flowchart TB
     S3 -. "RayJob" .-> RJ3["head + workers → tasks (grandchild runs)"]
 ```
 
-A pipeline run fans out as **stage → RayJob → task**, with MLflow emitting a parent/child/grandchild run tree. Profiles (`local | minikube | gcp-*`) switch substrate without touching task code. Full detail in [`docs/00-architecture.md`](docs/00-architecture.md).
+Full detail in [`docs/00-architecture.md`](docs/00-architecture.md).
+
+## Chart components (pinned)
+
+| Component | Version | Source |
+|---|---|---|
+| `cloudnative-pg` | 0.28.0 | https://cloudnative-pg.github.io/charts |
+| `kuberay-operator` | 1.6.0 | https://ray-project.github.io/kuberay-helm/ |
+| `jupyterhub` | 4.3.3 | https://hub.jupyter.org/helm-chart/ |
+| MLflow image | `ghcr.io/mlflow/mlflow:v3.11.1-full` | — |
+| Ray image | `rayproject/ray:2.41.0-py312` | — |
 
 ## Design docs
 
@@ -57,6 +98,8 @@ A pipeline run fans out as **stage → RayJob → task**, with MLflow emitting a
 | [`docs/03-flow-framework.md`](docs/03-flow-framework.md) | `kyp` package, cookiecutter template, CLI surface |
 | [`docs/04-pipeline-execution.md`](docs/04-pipeline-execution.md) | Stage-per-RayJob pattern, MLflow run tree, local vs cluster |
 | [`docs/05-environments.md`](docs/05-environments.md) | Minikube → GCP portability matrix and the config-only delta |
+
+Per-component docs: [`infra/README.md`](infra/README.md), [`flow/README.md`](flow/README.md), [`k8s/minikube/README.md`](k8s/minikube/README.md).
 
 ## Principles
 
