@@ -101,10 +101,13 @@ Full detail in [`docs/00-architecture.md`](docs/00-architecture.md).
 
 Per-component docs: [`infra/README.md`](infra/README.md), [`flow/README.md`](flow/README.md), [`k8s/minikube/README.md`](k8s/minikube/README.md).
 
-## Principles
+## Principles (what the PoC demonstrates)
 
-1. **Pure Python tasks.** DS writes `@task def fn(spec) -> result`. No Ray/MLflow imports in project code.
-2. **Stage = RayJob.** Each pipeline stage runs as its own ephemeral Ray Job; no long-lived driver loops across stages.
-3. **One codebase, many targets.** `--profile=local|minikube|gcp-dev|gcp-prod` switches execution substrate, not logic.
-4. **Platform is Helm. Project is Cookiecutter.** Two orthogonal delivery mechanisms, versioned separately.
-5. **MLflow is implicit.** Parent/child/grandchild run tree is emitted by the framework; DS never calls `mlflow.*`.
+1. **One Helm chart, one env delta.** Cluster is stood up from `kyper-ds-platform` + a single `values-<env>.yaml`; no per-env template edits.
+2. **JupyterHub is the DS entry point.** Login spawns a singleuser pod in `ds-workloads` and a matching `RayCluster` (small/large profile) via `pre_spawn_hook`; `post_stop_hook` tears it down.
+3. **Per-user Ray, not shared Ray.** Each user gets their own autoscaling `RayCluster` pinned to `kyper.ai/role=workload` nodes — isolation by default, no noisy-neighbour contention.
+4. **Ray-parallel fan-out, MLflow nested runs.** Notebook pattern: parent run → `@ray.remote` tasks per (sensor × model) → each task logs as a child run. `MLFLOW_TRACKING_URI` is injected into singleuser *and* Ray pods.
+5. **Shared data via RWX PVC.** `oxy-data` (NFS-backed) is mounted at `/mnt/oxy` in both the notebook pod and every Ray pod — same path, same bytes, no copying.
+6. **Pinned versions.** Ray 2.41.0, MLflow v3.11.1, KubeRay 1.6.0, CNPG 0.28.0, JupyterHub 4.3.3 — upgrades are deliberate.
+
+Target design for the `flow/` framework (pure-Python `@task`, stage-per-RayJob, `kyp` CLI, profile-switched substrate) lives in [`docs/03-flow-framework.md`](docs/03-flow-framework.md) and [`docs/04-pipeline-execution.md`](docs/04-pipeline-execution.md) — not yet implemented.
