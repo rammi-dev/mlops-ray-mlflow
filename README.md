@@ -1,6 +1,6 @@
 # kyper-framework
 
-Two-part foundation for data-science work at Kyper:
+Two-part foundation for data-science work at Kyper (PoC):
 
 - **[`infra/`](infra/)** — platform deployed **once per cluster** via Helm. Provides MLflow, KubeRay operator, CloudNativePG-managed Postgres, namespaces, RBAC, and shared storage. Runs on minikube today, GCP tomorrow, same chart.
 - **[`flow/`](flow/)** — the `kyp` Python framework + cookiecutter template used **per DS project**. Encodes the stage-per-RayJob execution pattern, local↔Ray parity, and MLflow wiring so DS writes only pure task functions.
