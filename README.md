@@ -1,4 +1,4 @@
-# kyper-framework
+# kyper-framework PoC
 
 Two-part foundation for data-science work at Kyper (PoC):
 
