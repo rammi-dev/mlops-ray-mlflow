@@ -1,0 +1,14 @@
+artifact_uri: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/370425336041401823/b85eac0d4a34493c93488ef6d3cfe0b2/artifacts
+end_time: 1776281540889
+entry_point_name: ''
+experiment_id: '370425336041401823'
+lifecycle_stage: active
+run_id: b85eac0d4a34493c93488ef6d3cfe0b2
+run_name: train_model_c82a0_00008
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776281537576
+status: 3
+tags: []
+user_id: unknown

@@ -74,9 +74,9 @@ Run the reference notebook on your host with [uv](https://docs.astral.sh/uv/), u
 cd /home/rami/Work/kyper
 uv venv --python 3.12 .venv
 source .venv/bin/activate
-uv pip install 'numpy<2' 'pandas<2.2' 'ray[default]==2.41.0' \
+uv pip install 'numpy<2' 'pandas<2.2' 'ray[default,tune]==2.41.0' \
   mlflow pyod scikit-learn matplotlib xgboost statsmodels pyyaml \
-  ipywidgets jupyterlab
+  ipywidgets jupyterlab jupytext pyarrow requests
 
 # Launch
 jupyter lab
@@ -84,11 +84,13 @@ jupyter lab
 
 Open [`notebooks/anomaly_detection_ray_parallel.ipynb`](kyper-framework/notebooks/anomaly_detection_ray_parallel.ipynb). The notebook falls back to `OXY_ROOT=/home/rami/Work/kyper/oxy` when `/mnt/oxy` is absent, and `ray.init()` (no address) spawns a local Ray cluster on your CPU.
 
+Local Ray auto-starts a dashboard at [http://127.0.0.1:8265](http://127.0.0.1:8265) when `ray[default]` is installed — open it in a browser to inspect jobs, tasks, and actors.
+
 ### MLflow backend options
 
 | Mode | How | Where runs land |
 |---|---|---|
-| Local file store | Leave `MLFLOW_TRACKING_URI` unset | `./mlruns/` — view with `mlflow ui --backend-store-uri ./mlruns --port 5000` |
+| Local file store | Leave `MLFLOW_TRACKING_URI` unset | Tutorial runs → `kyper-framework/notebooks/tutorial/mlruns/` (anchored to the tutorial dir). View: `cd kyper-framework/notebooks/tutorial && mlflow ui --backend-store-uri ./mlruns --port 5000` |
 | Cluster MLflow (shared) | `kubectl port-forward -n ds-platform svc/mlflow 5000:5000` then `export MLFLOW_TRACKING_URI=http://localhost:5000` | Same Postgres + PVC as the cluster — runs visible to everyone using JupyterHub |
 
 The cluster MLflow option is the recommended way to merge local + cluster experimentation into a single tracking server.

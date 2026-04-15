@@ -1,0 +1,8 @@
+artifact_location: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/836577033712787460
+creation_time: 1776281832217
+experiment_id: '836577033712787460'
+last_update_time: 1776281832217
+lifecycle_stage: active
+name: 05-mlflow-datasets
+trace_location: null
+workspace: default

@@ -1,0 +1,14 @@
+artifact_uri: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/836577033712787460/d80bd4359498461785c8fc1a11510012/artifacts
+end_time: 1776281914527
+entry_point_name: ''
+experiment_id: '836577033712787460'
+lifecycle_stage: active
+run_id: d80bd4359498461785c8fc1a11510012
+run_name: rf-with-datasets
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776281912425
+status: 3
+tags: []
+user_id: rami

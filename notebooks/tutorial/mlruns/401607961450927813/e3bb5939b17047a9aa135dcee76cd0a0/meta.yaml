@@ -1,0 +1,14 @@
+artifact_uri: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/401607961450927813/e3bb5939b17047a9aa135dcee76cd0a0/artifacts
+end_time: 1776283127077
+entry_point_name: ''
+experiment_id: '401607961450927813'
+lifecycle_stage: active
+run_id: e3bb5939b17047a9aa135dcee76cd0a0
+run_name: rf-on-curated-dataset
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776283124810
+status: 3
+tags: []
+user_id: rami

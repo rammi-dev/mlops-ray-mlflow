@@ -1,0 +1,8 @@
+artifact_location: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/401607961450927813
+creation_time: 1776283124660
+experiment_id: '401607961450927813'
+last_update_time: 1776283124660
+lifecycle_stage: active
+name: 05b-ds-consumes-curated-dataset
+trace_location: null
+workspace: default

@@ -1,0 +1,14 @@
+artifact_uri: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/746190619951697505/30119323833a4f2db33ff445c873cbd1/artifacts
+end_time: 1776283469680
+entry_point_name: ''
+experiment_id: '746190619951697505'
+lifecycle_stage: active
+run_id: 30119323833a4f2db33ff445c873cbd1
+run_name: breast-cancer-v2-train
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776283469661
+status: 3
+tags: []
+user_id: rami

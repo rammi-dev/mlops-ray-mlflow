@@ -1,0 +1,14 @@
+artifact_uri: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/631529004937095943/47abd54a9d65432295993fa4944d456f/artifacts
+end_time: 1776281672181
+entry_point_name: ''
+experiment_id: '631529004937095943'
+lifecycle_stage: active
+run_id: 47abd54a9d65432295993fa4944d456f
+run_name: challenger-validation
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776281672176
+status: 3
+tags: []
+user_id: rami

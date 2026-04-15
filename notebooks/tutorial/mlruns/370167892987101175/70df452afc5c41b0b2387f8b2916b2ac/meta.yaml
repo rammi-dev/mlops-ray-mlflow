@@ -1,0 +1,14 @@
+artifact_uri: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/370167892987101175/70df452afc5c41b0b2387f8b2916b2ac/artifacts
+end_time: 1776279700431
+entry_point_name: ''
+experiment_id: '370167892987101175'
+lifecycle_stage: active
+run_id: 70df452afc5c41b0b2387f8b2916b2ac
+run_name: rf-n200-d10
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1776279699064
+status: 3
+tags: []
+user_id: rami

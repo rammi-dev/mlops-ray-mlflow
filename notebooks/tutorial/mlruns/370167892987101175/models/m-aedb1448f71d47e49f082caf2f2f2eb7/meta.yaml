@@ -1,0 +1,10 @@
+artifact_location: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/370167892987101175/models/m-aedb1448f71d47e49f082caf2f2f2eb7/artifacts
+creation_timestamp: 1776279696370
+experiment_id: '370167892987101175'
+last_updated_timestamp: 1776279698406
+model_id: m-aedb1448f71d47e49f082caf2f2f2eb7
+model_type: null
+name: model
+source_run_id: 2365fb6400e14a7d9bad0a20be6193f3
+status: 2
+status_message: null
