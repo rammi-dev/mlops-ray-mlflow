@@ -1,0 +1,37 @@
+# ── MLflow ─────────────────────────────────────────────────────────────
+# Local file-store tracking backends (anywhere in the tree).
+mlruns/
+mlartifacts/
+mlflow.db
+mlflow.db-*
+
+# ── Tutorial-generated data ────────────────────────────────────────────
+# DE-curated datasets from notebooks/tutorial/05a_de_prepare_dataset.py.
+# Regenerate on demand — don't bloat the repo with parquet.
+notebooks/tutorial/shared_datasets/
+notebooks/tutorial/datasets/
+
+# ── Python ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtualenvs ────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Jupyter ────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── IDE ────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+
+# ── OS ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
