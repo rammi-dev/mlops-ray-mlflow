@@ -65,6 +65,34 @@ flowchart TB
     RC -- "PVC oxy-data (RWX)" --> NFSSRV
 ```
 
+## Local development (no cluster)
+
+Run the reference notebook on your host with [uv](https://docs.astral.sh/uv/), using a local Ray cluster and local MLflow.
+
+```bash
+# One-time setup
+cd /home/rami/Work/kyper
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+uv pip install 'numpy<2' 'pandas<2.2' 'ray[default]==2.41.0' \
+  mlflow pyod scikit-learn matplotlib xgboost statsmodels pyyaml \
+  ipywidgets jupyterlab
+
+# Launch
+jupyter lab
+```
+
+Open [`notebooks/anomaly_detection_ray_parallel.ipynb`](kyper-framework/notebooks/anomaly_detection_ray_parallel.ipynb). The notebook falls back to `OXY_ROOT=/home/rami/Work/kyper/oxy` when `/mnt/oxy` is absent, and `ray.init()` (no address) spawns a local Ray cluster on your CPU.
+
+### MLflow backend options
+
+| Mode | How | Where runs land |
+|---|---|---|
+| Local file store | Leave `MLFLOW_TRACKING_URI` unset | `./mlruns/` — view with `mlflow ui --backend-store-uri ./mlruns --port 5000` |
+| Cluster MLflow (shared) | `kubectl port-forward -n ds-platform svc/mlflow 5000:5000` then `export MLFLOW_TRACKING_URI=http://localhost:5000` | Same Postgres + PVC as the cluster — runs visible to everyone using JupyterHub |
+
+The cluster MLflow option is the recommended way to merge local + cluster experimentation into a single tracking server.
+
 ## Pipeline run (kyp CLI path)
 
 ```mermaid
