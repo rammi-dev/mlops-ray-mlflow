@@ -1,8 +1,0 @@
-artifact_location: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/370167892987101175
-creation_time: 1776277998814
-experiment_id: '370167892987101175'
-last_update_time: 1776277998814
-lifecycle_stage: active
-name: 01-tracking-basics-demo
-trace_location: null
-workspace: default

@@ -1,8 +1,0 @@
-artifact_location: file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns/746190619951697505
-creation_time: 1776283469603
-experiment_id: '746190619951697505'
-last_update_time: 1776283469603
-lifecycle_stage: active
-name: etl-datasets
-trace_location: null
-workspace: default

@@ -1,6 +1,0 @@
-destination_id: 4eeb57f4784675bf641b304e4797d140
-destination_type: RUN
-source_id: 4eeb57f4784675bf641b304e4797d140
-source_type: DATASET
-tags:
-  mlflow.data.context: evaluation
