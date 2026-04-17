@@ -133,7 +133,7 @@ jupyterhub:
         from kubernetes_asyncio import client as k8s_client, config as k8s_config
         import string, yaml
 
-        RAY_IMAGE = "rayproject/ray:2.41.0-py312"
+        RAY_IMAGE = "rayproject/ray:2.48.0-py312"
         WORKLOAD_NS = "ds-workloads"
         OXY_MOUNT = "/mnt/oxy"
 
@@ -155,7 +155,7 @@ jupyterhub:
                 "kind": "RayCluster",
                 "metadata": {"name": _cluster_name(username), "namespace": WORKLOAD_NS},
                 "spec": {
-                    "rayVersion": "2.41.0",
+                    "rayVersion": "2.48.0",
                     "enableInTreeAutoscaling": True,
                     "headGroupSpec": {
                         "rayStartParams": {"dashboard-host": "0.0.0.0"},
@@ -267,7 +267,7 @@ jupyterhub:
     lifecycleHooks:
       postStart:
         exec:
-          command: ["/bin/sh", "-c", "ln -sfn /mnt/oxy /home/jovyan/oxy; pip install -q 'numpy<2' 'pandas<2.2' ray[client]==2.41.0 mlflow>=2.0 scikit-learn pyod matplotlib xgboost statsmodels pyyaml ipywidgets &"]
+          command: ["/bin/sh", "-c", "ln -sfn /mnt/oxy /home/jovyan/oxy; pip install -q 'numpy<2' 'pandas<2.2' ray[client]==2.48.0 mlflow>=2.0 scikit-learn pyod matplotlib xgboost statsmodels pyyaml ipywidgets &"]
     profileList:
       - display_name: "Small Ray Cluster"
         description: "1 CPU head, up to 1 worker (autoscale)"

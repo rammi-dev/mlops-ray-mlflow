@@ -13,9 +13,7 @@
 # cd /home/rami/Work/kyper
 # uv venv --python 3.12 .venv
 # source .venv/bin/activate
-# uv pip install 'numpy<2' 'pandas<2.2' 'ray[default,tune]==2.41.0' \
-#   mlflow pyod scikit-learn matplotlib xgboost statsmodels pyyaml \
-#   ipywidgets jupyterlab jupytext pyarrow requests
+# uv pip install -e .    # installs all deps from pyproject.toml
 # ```
 #
 # In VS Code/JupyterLab, select `/home/rami/Work/kyper/.venv/bin/python` as
@@ -23,9 +21,9 @@
 # [`README.md`](../../README.md) for the full recipe.
 #
 # Two ways to run:
-# - **Local file store** — leave `MLFLOW_TRACKING_URI` unset; runs land in
-#   `kyper-framework/notebooks/tutorial/mlruns/` (anchored next to this file
-#   regardless of the notebook's cwd).
+# - **Local SQLite** — leave `MLFLOW_TRACKING_URI` unset; runs land in
+#   `kyper-framework/mlflow.db` (shared by all notebooks — anomaly detection
+#   + tutorials). No server process needed.
 # - **Cluster MLflow** — `kubectl port-forward -n ds-platform svc/mlflow 5000:5000`
 #   then `export MLFLOW_TRACKING_URI=http://localhost:5000`.
 #
@@ -34,15 +32,13 @@
 # **Viewing the MLflow UI**
 # Logging runs is decoupled from the UI — you need to start the UI separately:
 #
-# - **Local file store** — point the UI at the anchored tutorial mlruns:
+# - **Local SQLite** — point the UI at the shared DB:
 #   ```bash
 #   mlflow ui \
-#     --backend-store-uri file:///home/rami/Work/kyper/kyper-framework/notebooks/tutorial/mlruns \
+#     --backend-store-uri sqlite:////home/rami/Work/kyper/kyper-framework/mlflow.db \
 #     --port 5000
 #   ```
 #   Then open http://localhost:5000.
-#   (Or from the tutorial dir: `cd kyper-framework/notebooks/tutorial &&
-#   mlflow ui --backend-store-uri ./mlruns --port 5000`.)
 # - **Cluster MLflow** — keep the `kubectl port-forward` above running;
 #   the UI is already served at http://localhost:5000 by the cluster
 #   MLflow pod (no local `mlflow ui` needed).
@@ -76,8 +72,9 @@ import mlflow
 # Anchored to this file's directory so every notebook (and VS Code kernel,
 # regardless of cwd) writes to the SAME ./tutorial/mlruns store — avoids
 # ending up with mlruns/ split across several parent dirs.
-_TUTORIAL_DIR = Path(__file__).resolve().parent
-DEFAULT_LOCAL_URI = (_TUTORIAL_DIR / "mlruns").as_uri()   # file:///.../tutorial/mlruns
+# Resolve relative to this file: .../notebooks/tutorial/config.py → .../kyper-framework/mlflow.db
+_MLFLOW_DB = (Path(__file__).resolve().parents[2] / "mlflow.db")
+DEFAULT_LOCAL_URI = f"sqlite:///{_MLFLOW_DB}"
 
 # ── Module-level guard — prevents double-init in the same process ─────────
 _init_lock    = threading.Lock()

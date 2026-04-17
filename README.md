@@ -74,9 +74,7 @@ Run the reference notebook on your host with [uv](https://docs.astral.sh/uv/), u
 cd /home/rami/Work/kyper
 uv venv --python 3.12 .venv
 source .venv/bin/activate
-uv pip install 'numpy<2' 'pandas<2.2' 'ray[default,tune]==2.41.0' \
-  mlflow pyod scikit-learn matplotlib xgboost statsmodels pyyaml \
-  ipywidgets jupyterlab jupytext pyarrow requests
+uv pip install -e .    # installs all deps from pyproject.toml
 
 # Launch
 jupyter lab
@@ -90,8 +88,14 @@ Local Ray auto-starts a dashboard at [http://127.0.0.1:8265](http://127.0.0.1:82
 
 | Mode | How | Where runs land |
 |---|---|---|
-| Local file store | Leave `MLFLOW_TRACKING_URI` unset | Tutorial runs → `kyper-framework/notebooks/tutorial/mlruns/` (anchored to the tutorial dir). View: `cd kyper-framework/notebooks/tutorial && mlflow ui --backend-store-uri ./mlruns --port 5000` |
+| Local SQLite (default) | Leave `MLFLOW_TRACKING_URI` unset | `kyper-framework/mlflow.db` — shared by the anomaly notebook and all tutorials. No server process needed. |
 | Cluster MLflow (shared) | `kubectl port-forward -n ds-platform svc/mlflow 5000:5000` then `export MLFLOW_TRACKING_URI=http://localhost:5000` | Same Postgres + PVC as the cluster — runs visible to everyone using JupyterHub |
+
+**Viewing the local MLflow UI:**
+```bash
+mlflow ui --backend-store-uri sqlite:///$(pwd)/kyper-framework/mlflow.db --port 5000
+```
+Then open http://localhost:5000. All local experiments (anomaly detection + tutorials) are in the same DB.
 
 The cluster MLflow option is the recommended way to merge local + cluster experimentation into a single tracking server.
 
@@ -116,7 +120,7 @@ Full detail in [`docs/00-architecture.md`](docs/00-architecture.md).
 | `kuberay-operator` | 1.6.0 | https://ray-project.github.io/kuberay-helm/ |
 | `jupyterhub` | 4.3.3 | https://hub.jupyter.org/helm-chart/ |
 | MLflow image | `ghcr.io/mlflow/mlflow:v3.11.1-full` | — |
-| Ray image | `rayproject/ray:2.41.0-py312` | — |
+| Ray image | `rayproject/ray:2.48.0-py312` | — |
 
 ## Design docs
 
@@ -138,6 +142,6 @@ Per-component docs: [`infra/README.md`](infra/README.md), [`flow/README.md`](flo
 3. **Per-user Ray, not shared Ray.** Each user gets their own autoscaling `RayCluster` pinned to `kyper.ai/role=workload` nodes — isolation by default, no noisy-neighbour contention.
 4. **Ray-parallel fan-out, MLflow nested runs.** Notebook pattern: parent run → `@ray.remote` tasks per (sensor × model) → each task logs as a child run. `MLFLOW_TRACKING_URI` is injected into singleuser *and* Ray pods.
 5. **Shared data via RWX PVC.** `oxy-data` (NFS-backed) is mounted at `/mnt/oxy` in both the notebook pod and every Ray pod — same path, same bytes, no copying.
-6. **Pinned versions.** Ray 2.41.0, MLflow v3.11.1, KubeRay 1.6.0, CNPG 0.28.0, JupyterHub 4.3.3 — upgrades are deliberate.
+6. **Pinned versions.** Ray 2.48.0, MLflow v3.11.1, KubeRay 1.6.0, CNPG 0.28.0, JupyterHub 4.3.3 — upgrades are deliberate.
 
 Target design for the `flow/` framework (pure-Python `@task`, stage-per-RayJob, `kyp` CLI, profile-switched substrate) lives in [`docs/03-flow-framework.md`](docs/03-flow-framework.md) and [`docs/04-pipeline-execution.md`](docs/04-pipeline-execution.md) — not yet implemented.

@@ -32,7 +32,12 @@ recipe.
 | `02_ray_tune_hpo.py` | Parallel hyperparameter search with Ray Tune |
 | `03_ray_train_distributed.py` | Multi-worker training with Ray Train |
 | `04_model_registry_deploy.py` | MLflow Model Registry + alias lifecycle (`@champion` / `@challenger`) |
-| `05_mlflow_datasets.py` | `mlflow.data.from_pandas`, digests, querying runs by dataset |
+| **05 — Datasets** | |
+| `05a1_de_prepare_dataset.py` | DE role: curate + store + log a dataset for downstream ML |
+| `05a2_de_iceberg_duckdb.py` | DE role: Iceberg table (SQLite catalog) + DuckDB query + MLflow dataset |
+| `05a3_de_dask_on_ray.py` | DE role: ETL with Dask (pandas API) on Ray executor → Parquet + MLflow dataset |
+| `05b1_ds_consume_dataset.py` | DS role: consume a DE-curated dataset in an ML experiment |
+| `05b2_ds_dask_on_ray.py` | DS role: consume 05a3's Dask output, feature-select, train + log to MLflow |
 | `06_mlflow_model_serve.py` | Signature, `pyfunc` load, `mlflow models serve` REST |
 
 Every `.py` has a `.ipynb` sibling kept in sync via jupytext.
@@ -51,9 +56,7 @@ If you haven't set it up yet:
 cd /home/rami/Work/kyper
 uv venv --python 3.12 .venv
 source .venv/bin/activate
-uv pip install 'numpy<2' 'pandas<2.2' 'ray[default,tune]==2.41.0' \
-  mlflow pyod scikit-learn matplotlib xgboost statsmodels pyyaml \
-  ipywidgets jupyterlab jupytext pyarrow requests
+uv pip install -e .    # installs all deps from pyproject.toml
 ```
 
 Launch JupyterLab or open any `.ipynb` in VS Code and select
@@ -68,8 +71,12 @@ kubectl port-forward -n ds-platform svc/mlflow 5000:5000
 export MLFLOW_TRACKING_URI=http://localhost:5000
 ```
 
-Leave `MLFLOW_TRACKING_URI` unset to use the local file store at `./mlruns`
-(view with `cd kyper-framework/notebooks/tutorial && mlflow ui --backend-store-uri ./mlruns --port 5000`). Tutorial runs are anchored to `tutorial/mlruns/` regardless of the kernel's cwd.
+Leave `MLFLOW_TRACKING_URI` unset to use the local SQLite store at
+`kyper-framework/mlflow.db` (shared with the anomaly-detection notebook).
+View with:
+```bash
+mlflow ui --backend-store-uri sqlite:///$(pwd)/kyper-framework/mlflow.db --port 5000
+```
 
 ### In-cluster (JupyterHub)
 
